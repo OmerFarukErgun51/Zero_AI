@@ -102,8 +102,15 @@ class OutlookClient:
         try:
             folder = self._namespace().GetDefaultFolder(_OL_FOLDER_CALENDAR)
             today = datetime.now().date()
+            items = folder.Items
+            # Yinelenen (haftalık/günlük) toplantıların bugüne düşmesi için şart:
+            try:
+                items.IncludeRecurrences = True
+                items.Sort("[Start]")
+            except Exception:
+                pass
             out: list[Event] = []
-            for item in folder.Items:
+            for item in items:
                 start = _as_datetime(item.Start)
                 if start.date() != today:
                     continue

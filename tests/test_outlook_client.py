@@ -20,6 +20,21 @@ class FakeAppt:
         self.Location = location
 
 
+class FakeItems(list):
+    """Liste gibi davranır ama COM'un IncludeRecurrences/Sort/Restrict yüzeyini taklit eder."""
+
+    def __init__(self, items):
+        super().__init__(items)
+        self.IncludeRecurrences = False
+        self.sorted = False
+
+    def Sort(self, field, descending=False):
+        self.sorted = True
+
+    def Restrict(self, query):
+        return self
+
+
 class FakeFolder:
     def __init__(self, items):
         self.Items = items
@@ -83,3 +98,16 @@ def test_todays_events_filtered_to_today():
     c = OutlookClient(app_factory=_factory(calendar=cal))
     events = c.todays_events()
     assert [e.subject for e in events] == ["Bugünkü"]
+
+
+def test_todays_events_enables_recurrences():
+    today = datetime.now().replace(hour=14, minute=0, second=0, microsecond=0)
+    items = FakeItems([FakeAppt("Günlük ayakta toplantı", today, today + timedelta(hours=1))])
+
+    def factory():
+        return FakeApp(FakeNamespace(FakeFolder([]), FakeFolder(items)))
+
+    c = OutlookClient(app_factory=factory)
+    events = c.todays_events()
+    assert items.IncludeRecurrences is True  # yinelenen toplantılar için şart
+    assert [e.subject for e in events] == ["Günlük ayakta toplantı"]

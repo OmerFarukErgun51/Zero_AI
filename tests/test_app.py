@@ -87,3 +87,90 @@ def test_end_of_day_report_runs(tmp_path):
     app = _app(tmp_path)
     report = app.end_of_day_report("omer")
     assert set(report.fields.keys()) == {"yaptıklarım", "notlar", "yarına"}
+
+
+# --- Final review fix pass ---------------------------------------------------
+
+from datetime import datetime, timedelta
+
+from zero.outlook.client import OutlookStatus, Event, Mail
+
+
+class FakeScheduler:
+    def __init__(self):
+        self.jobs = []
+
+    def add_job(self, func, trigger=None, run_date=None, id=None, **kw):
+        self.jobs.append((func, run_date, id))
+
+    def remove_all_jobs(self):
+        self.jobs = []
+
+
+class FakeOutlookOk:
+    def __init__(self, events=(), mails=()):
+        self._events = list(events)
+        self._mails = list(mails)
+
+    def status(self):
+        return OutlookStatus(True, "ok")
+
+    def todays_events(self):
+        return self._events
+
+    def unread_mails(self, limit=20):
+        return self._mails
+
+
+def test_chat_turn_stores_embedding(tmp_path):
+    app = _app(tmp_path)  # FakeBrain.embed -> [0.0]
+    app.chat_turn("omer", "selam")
+    assert len(app.store.messages_with_embeddings("omer")) == 2  # user + assistant
+
+
+def test_learn_updates_profile(tmp_path):
+    app = _app(tmp_path)
+    app.store.add_message("omer", "user", "futbolu severim")
+    app.learn("omer")
+    assert app.store.get_profile_summary("omer") == "Buyur Ömer."
+
+
+def test_todays_plan_only_important_mails(tmp_path):
+    spam = Mail("15:00 indirim bülteni", "shop", datetime.now(), "")  # zamanlı ama önemsiz
+    outlook = FakeOutlookOk(mails=[spam])
+    store = MemoryStore(tmp_path / "zero.sqlite3")
+    from zero.config import Config as C
+    app = ZeroApp(C(memory_root=tmp_path), store, FakeBrain(), outlook, None, None, None)
+    plan = app.todays_plan("omer")
+    assert all(i.source != "mail" for i in plan.items)
+
+
+def test_set_plan_from_text_schedules(tmp_path):
+    from datetime import datetime as _dt
+    from zero.notify import Notifier
+    from zero.planner.scheduler import ReminderScheduler
+
+    brain = FakeBrain(reply='[{"time":"23:59","text":"gece işi"}]')
+    backend = FakeScheduler()
+    # Saat sabitlensin ki 23:59 her zaman gelecekte olsun
+    reminder = ReminderScheduler(
+        Notifier(toaster=type("T", (), {"show": lambda self, a, b: None})()),
+        scheduler=backend,
+        now_fn=lambda: _dt(2026, 10, 26, 8, 0),
+    )
+    store = MemoryStore(tmp_path / "zero.sqlite3")
+    from zero.config import Config as C
+    app = ZeroApp(C(memory_root=tmp_path), store, brain, FakeOutlookOk(), None, reminder, None)
+    plan = app.set_plan_from_text("omer", "gece 23:59 iş")
+    assert any(i.text == "gece işi" for i in plan.items)
+    assert len(backend.jobs) == 1
+
+
+def test_make_presentation_creates_file(tmp_path):
+    brain = FakeBrain(reply='[{"title":"Giriş","bullets":["a","b"]}]')
+    store = MemoryStore(tmp_path / "zero.sqlite3")
+    from zero.config import Config as C
+    app = ZeroApp(C(memory_root=tmp_path), store, brain, FakeOutlookOk(), None, None, None)
+    path = app.make_presentation("Proje")
+    assert path.exists()
+    assert path.suffix == ".pptx"
