@@ -35,7 +35,8 @@ def build_chat_window(view_model: ChatViewModel):  # pragma: no cover - GUI
 
     win = QWidget()
     win.setWindowTitle("ZeRo")
-    win.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+    # Normal başlık çubuğu: taşınabilir + kapatma düğmesi olsun (üstte takılı kalmasın).
+    win.setWindowFlags(Qt.Window)
     win.resize(380, 520)
 
     layout = QVBoxLayout(win)
