@@ -32,6 +32,25 @@ def test_profile_summary_default_empty(tmp_path):
     assert s.get_profile_summary("new") == ""
 
 
+def test_usable_from_another_thread(tmp_path):
+    import threading
+
+    s = _store(tmp_path)
+    errors = []
+
+    def worker():
+        try:
+            s.add_message("omer", "user", "threadten")
+        except Exception as e:  # noqa: BLE001
+            errors.append(e)
+
+    t = threading.Thread(target=worker)
+    t.start()
+    t.join()
+    assert errors == []
+    assert s.recent_messages("omer")[-1].text == "threadten"
+
+
 def test_embedding_roundtrip(tmp_path):
     s = _store(tmp_path)
     mid = s.add_message("omer", "user", "vektor")

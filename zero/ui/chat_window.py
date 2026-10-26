@@ -22,7 +22,9 @@ def build_chat_window(view_model: ChatViewModel):  # pragma: no cover - GUI
     """Köşede yaşayan, koyu temalı HUD sohbet penceresi döndürür."""
     from pathlib import Path
 
-    from PySide6.QtCore import Qt
+    import threading
+
+    from PySide6.QtCore import Qt, QObject, Signal
     from PySide6.QtWidgets import (
         QWidget,
         QVBoxLayout,
@@ -61,6 +63,21 @@ def build_chat_window(view_model: ChatViewModel):  # pragma: no cover - GUI
         who = "Sen" if m.role == "user" else "ZeRo"
         transcript.append(f"<b>{who}:</b> {m.text}")
 
+    # Cevap arka plan thread'inde üretilir; sonuç sinyalle ana thread'e döner
+    # (böylece pencere donmaz).
+    class _Bridge(QObject):
+        reply_ready = Signal(str)
+
+    bridge = _Bridge()
+
+    def _on_reply(reply: str):
+        transcript.append(f"<b>ZeRo:</b> {reply}")
+        entry.setEnabled(True)
+        send_btn.setEnabled(True)
+        entry.setFocus()
+
+    bridge.reply_ready.connect(_on_reply)
+
     def do_send():
         text = entry.text().strip()
         if not text:
@@ -68,8 +85,17 @@ def build_chat_window(view_model: ChatViewModel):  # pragma: no cover - GUI
         transcript.append(f"<b>Sen:</b> {text}")
         entry.clear()
         transcript.append("<i>ZeRo yazıyor…</i>")
-        reply = view_model.send(text)
-        transcript.append(f"<b>ZeRo:</b> {reply}")
+        entry.setEnabled(False)
+        send_btn.setEnabled(False)
+
+        def work():
+            try:
+                reply = view_model.send(text)
+            except Exception as e:  # noqa: BLE001
+                reply = f"(Bir sorun oldu: {e})"
+            bridge.reply_ready.emit(reply)
+
+        threading.Thread(target=work, daemon=True).start()
 
     send_btn.clicked.connect(do_send)
     entry.returnPressed.connect(do_send)

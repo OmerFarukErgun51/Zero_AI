@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -30,8 +31,12 @@ class MemoryStore:
     def __init__(self, db_path: Path):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(self.db_path))
+        # check_same_thread=False: arayüz arka plan thread'inden de erişebilsin
+        # (sohbet cevabı ayrı thread'de üretilir). _lock erişimi serileştirir.
+        self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        self._conn.execute("PRAGMA busy_timeout=5000")
+        self._lock = threading.RLock()
         self._create_tables()
 
     def _create_tables(self) -> None:
@@ -73,12 +78,13 @@ class MemoryStore:
     # --- mesajlar ---
     def add_message(self, profile: str, role: str, text: str, ts: datetime | None = None) -> int:
         ts = ts or datetime.now()
-        cur = self._conn.execute(
-            "INSERT INTO messages (profile, role, text, ts) VALUES (?, ?, ?, ?)",
-            (profile, role, text, ts.isoformat()),
-        )
-        self._conn.commit()
-        return int(cur.lastrowid)
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT INTO messages (profile, role, text, ts) VALUES (?, ?, ?, ?)",
+                (profile, role, text, ts.isoformat()),
+            )
+            self._conn.commit()
+            return int(cur.lastrowid)
 
     def _row_to_message(self, row: sqlite3.Row) -> Message:
         return Message(
@@ -105,12 +111,13 @@ class MemoryStore:
 
     # --- gerçekler (facts) ---
     def set_fact(self, profile: str, key: str, value: str) -> None:
-        self._conn.execute(
-            "INSERT INTO facts (profile, key, value) VALUES (?, ?, ?) "
-            "ON CONFLICT(profile, key) DO UPDATE SET value = excluded.value",
-            (profile, key, value),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO facts (profile, key, value) VALUES (?, ?, ?) "
+                "ON CONFLICT(profile, key) DO UPDATE SET value = excluded.value",
+                (profile, key, value),
+            )
+            self._conn.commit()
 
     def get_facts(self, profile: str) -> dict[str, str]:
         rows = self._conn.execute(
@@ -120,12 +127,13 @@ class MemoryStore:
 
     # --- profil özeti ---
     def set_profile_summary(self, profile: str, summary: str) -> None:
-        self._conn.execute(
-            "INSERT INTO profiles (profile, summary) VALUES (?, ?) "
-            "ON CONFLICT(profile) DO UPDATE SET summary = excluded.summary",
-            (profile, summary),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO profiles (profile, summary) VALUES (?, ?) "
+                "ON CONFLICT(profile) DO UPDATE SET summary = excluded.summary",
+                (profile, summary),
+            )
+            self._conn.commit()
 
     def get_profile_summary(self, profile: str) -> str:
         row = self._conn.execute(
@@ -135,12 +143,13 @@ class MemoryStore:
 
     # --- embedding'ler ---
     def set_embedding(self, message_id: int, vector: list[float]) -> None:
-        self._conn.execute(
-            "INSERT INTO embeddings (message_id, vector) VALUES (?, ?) "
-            "ON CONFLICT(message_id) DO UPDATE SET vector = excluded.vector",
-            (message_id, json.dumps(vector)),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO embeddings (message_id, vector) VALUES (?, ?) "
+                "ON CONFLICT(message_id) DO UPDATE SET vector = excluded.vector",
+                (message_id, json.dumps(vector)),
+            )
+            self._conn.commit()
 
     def messages_with_embeddings(self, profile: str) -> list[tuple[Message, list[float]]]:
         rows = self._conn.execute(
@@ -155,11 +164,12 @@ class MemoryStore:
 
     # --- etkinlik örnekleri (gün boyu takip) ---
     def add_activity_sample(self, profile: str, app: str, title: str, ts: datetime) -> None:
-        self._conn.execute(
-            "INSERT INTO activity (profile, app, title, ts) VALUES (?, ?, ?, ?)",
-            (profile, app, title, ts.isoformat()),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO activity (profile, app, title, ts) VALUES (?, ?, ?, ?)",
+                (profile, app, title, ts.isoformat()),
+            )
+            self._conn.commit()
 
     def activity_for_day(self, profile: str, day) -> list[ActivitySample]:
         rows = self._conn.execute(
