@@ -1,0 +1,14 @@
+# ZeRo v1 bağımlılıkları
+ollama>=0.3.0          # yerel LLM motoru istemcisi
+pywin32>=306           # Outlook COM + aktivite/pencere takibi + ses (Windows)
+PySide6>=6.6           # tepsi ikonu + HUD sohbet penceresi
+windows-toasts>=1.1    # Windows bildirimleri
+APScheduler>=3.10      # zamanlanmış hatırlatmalar
+openpyxl>=3.1          # Excel üretimi
+python-pptx>=0.6.23    # PowerPoint üretimi
+python-docx>=1.1       # Word üretimi
+mss>=9.0               # ekran görüntüsü (OCR için)
+pytesseract>=0.3.10    # yerel OCR (Tesseract gerektirir)
+
+# Geliştirme
+pytest>=8.0
