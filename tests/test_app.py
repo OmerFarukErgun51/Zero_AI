@@ -16,6 +16,10 @@ class FakeBrain:
     def chat(self, messages, **kwargs):
         return self.reply
 
+    def chat_stream(self, messages):
+        for part in ["Buy", "ur ", "Ömer."]:
+            yield part
+
     def embed(self, text):
         return [0.0]
 
@@ -50,6 +54,23 @@ def test_chat_turn_persists_and_replies(tmp_path):
     assert reply == "Buyur Ömer."
     roles = [m.role for m in app.store.all_messages("omer")]
     assert roles == ["user", "assistant"]
+
+
+def test_chat_turn_stream(tmp_path):
+    app = _app(tmp_path)
+    chunks = []
+    full = app.chat_turn_stream("omer", "selam", on_chunk=chunks.append)
+    assert "".join(chunks) == full
+    assert full == "Buyur Ömer."
+    assert [m.role for m in app.store.all_messages("omer")] == ["user", "assistant"]
+
+
+def test_chat_turn_stream_unavailable(tmp_path):
+    app = _app(tmp_path, brain=FakeBrain(available=False))
+    chunks = []
+    full = app.chat_turn_stream("omer", "selam", on_chunk=chunks.append)
+    assert "Ollama" in full
+    assert [m.role for m in app.store.all_messages("omer")] == ["user"]
 
 
 def test_chat_turn_brain_unavailable(tmp_path):

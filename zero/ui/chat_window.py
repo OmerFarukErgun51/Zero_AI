@@ -14,6 +14,9 @@ class ChatViewModel:
     def send(self, text: str) -> str:
         return self.app.chat_turn(self.profile, text)
 
+    def send_stream(self, text: str, on_chunk) -> str:
+        return self.app.chat_turn_stream(self.profile, text, on_chunk)
+
     def history(self):
         return self.app.store.all_messages(self.profile)
 
@@ -63,20 +66,29 @@ def build_chat_window(view_model: ChatViewModel):  # pragma: no cover - GUI
         who = "Sen" if m.role == "user" else "ZeRo"
         transcript.append(f"<b>{who}:</b> {m.text}")
 
-    # Cevap arka plan thread'inde üretilir; sonuç sinyalle ana thread'e döner
-    # (böylece pencere donmaz).
+    # Cevap arka plan thread'inde üretilir ve kelime kelime akar; sinyallerle
+    # ana thread'e taşınır (pencere donmaz, cevap anında yazmaya başlar).
+    from PySide6.QtGui import QTextCursor
+
     class _Bridge(QObject):
-        reply_ready = Signal(str)
+        chunk = Signal(str)
+        done = Signal()
 
     bridge = _Bridge()
 
-    def _on_reply(reply: str):
-        transcript.append(f"<b>ZeRo:</b> {reply}")
+    def _append_delta(delta: str):
+        cursor = transcript.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        transcript.setTextCursor(cursor)
+        transcript.insertPlainText(delta)
+
+    def _on_done():
         entry.setEnabled(True)
         send_btn.setEnabled(True)
         entry.setFocus()
 
-    bridge.reply_ready.connect(_on_reply)
+    bridge.chunk.connect(_append_delta)
+    bridge.done.connect(_on_done)
 
     def do_send():
         text = entry.text().strip()
@@ -84,16 +96,16 @@ def build_chat_window(view_model: ChatViewModel):  # pragma: no cover - GUI
             return
         transcript.append(f"<b>Sen:</b> {text}")
         entry.clear()
-        transcript.append("<i>ZeRo yazıyor…</i>")
+        transcript.append("<b>ZeRo:</b> ")  # cevap bu satıra akacak
         entry.setEnabled(False)
         send_btn.setEnabled(False)
 
         def work():
             try:
-                reply = view_model.send(text)
+                view_model.send_stream(text, lambda d: bridge.chunk.emit(d))
             except Exception as e:  # noqa: BLE001
-                reply = f"(Bir sorun oldu: {e})"
-            bridge.reply_ready.emit(reply)
+                bridge.chunk.emit(f"(Bir sorun oldu: {e})")
+            bridge.done.emit()
 
         threading.Thread(target=work, daemon=True).start()
 

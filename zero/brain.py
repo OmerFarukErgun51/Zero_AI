@@ -104,6 +104,29 @@ class Brain:
                 break
         return out
 
+    def chat_stream(self, messages: list[dict]):
+        """Cevabı parça parça (delta) üretir — arayüzde kelime kelime akması için."""
+        messages = self._no_think(messages)
+        kwargs = dict(
+            model=self.config.model,
+            messages=messages,
+            keep_alive=self.config.keep_alive,
+            stream=True,
+            think=False,
+        )
+        try:
+            stream = self._client.chat(**kwargs)
+        except TypeError:
+            kwargs.pop("think")
+            stream = self._client.chat(**kwargs)
+        for chunk in stream:
+            if isinstance(chunk, dict):
+                delta = chunk.get("message", {}).get("content", "")
+            else:
+                delta = getattr(getattr(chunk, "message", None), "content", "") or ""
+            if delta:
+                yield delta
+
     def embed(self, text: str) -> list[float]:
         resp = self._client.embeddings(
             model=self.config.embed_model,

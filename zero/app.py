@@ -41,6 +41,25 @@ class ZeroApp:
         self._embed_quietly(aid, reply)
         return reply
 
+    def chat_turn_stream(self, profile: str, user_text: str, on_chunk) -> str:
+        """Sohbet turu, cevabı parça parça on_chunk ile akıtarak. Tam cevabı döndürür."""
+        status = self.brain.is_available()
+        if not status.ok:
+            self.store.add_message(profile, "user", user_text)
+            on_chunk(status.message)
+            return status.message
+
+        ctx = build_context(self.store, self.brain, profile, user_text)
+        full = ""
+        for delta in self.brain.chat_stream(ctx):
+            full += delta
+            on_chunk(delta)
+        uid = self.store.add_message(profile, "user", user_text)
+        aid = self.store.add_message(profile, "assistant", full)
+        self._embed_quietly(uid, user_text)
+        self._embed_quietly(aid, full)
+        return full
+
     def _embed_quietly(self, message_id: int, text: str) -> None:
         # Embedding başarısız olursa sohbet bozulmasın.
         try:

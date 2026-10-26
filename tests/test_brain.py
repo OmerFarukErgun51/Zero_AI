@@ -12,6 +12,13 @@ class FakeClient:
 
     def chat(self, **kwargs):
         self.chat_kwargs = kwargs
+        if kwargs.get("stream"):
+            return iter(
+                [
+                    {"message": {"content": "mer"}},
+                    {"message": {"content": "haba"}},
+                ]
+            )
         return {"message": {"content": "merhaba Ömer"}}
 
     def list(self):
@@ -72,6 +79,13 @@ def test_is_available_false_when_model_missing():
     status = _brain(FakeClient(models=("nomic-embed-text",))).is_available()
     assert status.ok is False
     assert "pull" in status.message.lower()
+
+
+def test_chat_stream_yields_deltas():
+    fake = FakeClient()
+    chunks = list(_brain(fake).chat_stream([{"role": "user", "content": "selam"}]))
+    assert "".join(chunks) == "merhaba"
+    assert fake.chat_kwargs["stream"] is True
 
 
 def test_embed_returns_vector():
