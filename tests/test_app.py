@@ -68,3 +68,22 @@ def test_remember_sets_fact(tmp_path):
     app = _app(tmp_path)
     app.remember("omer", "favori_renk", "mavi")
     assert app.store.get_facts("omer")["favori_renk"] == "mavi"
+
+
+def test_read_screen_delegates(tmp_path):
+    app = _app(tmp_path)
+    out = app.read_screen(ocr=lambda img: "ekranda bu var", grab=lambda: "img")
+    assert out == "ekranda bu var"
+
+
+def test_import_file_summarizes(tmp_path):
+    p = tmp_path / "mail.txt"
+    p.write_text("uzun mail içeriği", encoding="utf-8")
+    app = _app(tmp_path)  # FakeBrain.chat → "Buyur Ömer."
+    assert app.import_file(p) == "Buyur Ömer."
+
+
+def test_end_of_day_report_runs(tmp_path):
+    app = _app(tmp_path)
+    report = app.end_of_day_report("omer")
+    assert set(report.fields.keys()) == {"yaptıklarım", "notlar", "yarına"}

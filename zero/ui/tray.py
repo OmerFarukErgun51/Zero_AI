@@ -41,9 +41,43 @@ def run_ui(app, profile: str = DEFAULT_PROFILE):  # pragma: no cover - GUI
         state["paused"] = not state["paused"]
         act_pause.setText("Devam et" if state["paused"] else "Duraklat")
         app.paused = state["paused"]
+        if app.activity_tracker is not None:
+            app.activity_tracker.paused = state["paused"]
 
     act_pause.triggered.connect(toggle_pause)
     menu.addAction(act_pause)
+
+    menu.addSeparator()
+
+    def read_screen_action():
+        text = app.read_screen()
+        tray.showMessage("ZeRo — Ekran", text[:250] or "Ekranda okunacak metin bulamadım.")
+
+    act_screen = QAction("Ekranı oku")
+    act_screen.triggered.connect(read_screen_action)
+    menu.addAction(act_screen)
+
+    def import_file_action():
+        from PySide6.QtWidgets import QFileDialog
+
+        path, _ = QFileDialog.getOpenFileName(window, "İçe aktarılacak dosya", "", "Metin (*.txt)")
+        if path:
+            tray.showMessage("ZeRo — Özet", app.import_file(path)[:250])
+
+    act_import = QAction("Dosya içe aktar")
+    act_import.triggered.connect(import_file_action)
+    menu.addAction(act_import)
+
+    def report_action():
+        report = app.end_of_day_report(profile)
+        ozet = report.fields.get("yaptıklarım") or str(report.app_minutes)
+        tray.showMessage("ZeRo — Gün sonu", ozet[:250] or "Bugün için kayıt yok.")
+
+    act_report = QAction("Gün sonu raporu")
+    act_report.triggered.connect(report_action)
+    menu.addAction(act_report)
+
+    menu.addSeparator()
 
     act_quit = QAction("Çıkış")
     act_quit.triggered.connect(qapp.quit)
@@ -71,6 +105,8 @@ def run_ui(app, profile: str = DEFAULT_PROFILE):  # pragma: no cover - GUI
     def tick():
         if state["paused"]:
             return
+        if app.activity_tracker is not None:
+            app.activity_tracker.sample()
         for nudge in app.on_tick(profile):
             app.notifier.send("ZeRo", nudge.message)
 

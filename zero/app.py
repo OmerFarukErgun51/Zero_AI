@@ -12,7 +12,10 @@ from zero.planner.parser import merge_meetings
 
 
 class ZeroApp:
-    def __init__(self, config, store, brain, outlook, notifier, scheduler, break_tracker):
+    def __init__(
+        self, config, store, brain, outlook, notifier, scheduler, break_tracker,
+        activity_tracker=None,
+    ):
         self.config = config
         self.store = store
         self.brain = brain
@@ -20,6 +23,8 @@ class ZeroApp:
         self.notifier = notifier
         self.scheduler = scheduler
         self.break_tracker = break_tracker
+        self.activity_tracker = activity_tracker
+        self.paused = False
 
     def chat_turn(self, profile: str, user_text: str) -> str:
         status = self.brain.is_available()
@@ -56,6 +61,31 @@ class ZeroApp:
     def remember(self, profile: str, key: str, value: str) -> None:
         self.store.set_fact(profile, key, value)
 
+    def read_screen(self, ocr=None, grab=None) -> str:
+        from zero.screen import read_screen
+
+        return read_screen(ocr=ocr, grab=grab)
+
+    def import_file(self, path, instruction: str = "") -> str:
+        from zero.importers import read_text_file, summarize
+
+        return summarize(self.brain, read_text_file(path), instruction)
+
+    def end_of_day_report(self, profile: str):
+        from datetime import date as _date
+
+        from zero.daily_report import build_report
+
+        brain_arg = self.brain if self.brain.is_available().ok else None
+        return build_report(
+            self.store,
+            profile,
+            _date.today(),
+            self.todays_plan(profile),
+            self.config.sample_interval_s,
+            brain=brain_arg,
+        )
+
 
 def main():  # pragma: no cover - canlı çalıştırma (UI + Ollama + Outlook gerektirir)
     from zero.config import Config
@@ -65,6 +95,7 @@ def main():  # pragma: no cover - canlı çalıştırma (UI + Ollama + Outlook g
     from zero.notify import Notifier
     from zero.planner.scheduler import ReminderScheduler
     from zero.health import BreakTracker
+    from zero.tracker import ActivityTracker
 
     config = Config.load(config_path())
     store = MemoryStore(config.memory_db_path)
@@ -78,6 +109,7 @@ def main():  # pragma: no cover - canlı çalıştırma (UI + Ollama + Outlook g
         notifier=notifier,
         scheduler=ReminderScheduler(notifier),
         break_tracker=BreakTracker(config),
+        activity_tracker=ActivityTracker(store, "omer"),
     )
 
     from zero.ui.tray import run_ui
