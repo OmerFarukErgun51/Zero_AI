@@ -89,6 +89,15 @@ class OutlookClient:
         except Exception:
             return []
 
+    def find_item_by_subject(self, subject: str):
+        """Konusu eşleşen gelen kutusu öğesini (COM) döndürür; yoksa None.
+        COM erişilemezse Exception yükseltir (çağıran yakalar)."""
+        folder = self._namespace().GetDefaultFolder(_OL_FOLDER_INBOX)
+        for item in folder.Items:
+            if getattr(item, "Subject", None) == subject:
+                return item
+        return None
+
     def todays_events(self) -> list[Event]:
         try:
             folder = self._namespace().GetDefaultFolder(_OL_FOLDER_CALENDAR)
