@@ -58,5 +58,25 @@ def run_ui(app, profile: str = DEFAULT_PROFILE):  # pragma: no cover - GUI
     except Exception:
         pass
 
+    # Bugünün planını zamanla (hatırlatmalar)
+    try:
+        if app.scheduler is not None:
+            app.scheduler.schedule_plan(app.todays_plan(profile))
+    except Exception:
+        pass
+
+    # Periyodik dürtme döngüsü (mola/su) — duraklatılabilir
+    from PySide6.QtCore import QTimer
+
+    def tick():
+        if state["paused"]:
+            return
+        for nudge in app.on_tick(profile):
+            app.notifier.send("ZeRo", nudge.message)
+
+    timer = QTimer()
+    timer.timeout.connect(tick)
+    timer.start(60_000)  # her dakika
+
     window.show()
     sys.exit(qapp.exec())
