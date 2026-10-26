@@ -104,6 +104,13 @@ class ZeroApp:
     def remember(self, profile: str, key: str, value: str) -> None:
         self.store.set_fact(profile, key, value)
 
+    def learn_document(self, profile: str, path) -> int:
+        """Bir metin dosyasını ZeRo'ya öğretir (RAG): parçalar, embed'ler, saklar."""
+        from zero.importers import read_text_file
+        from zero.rag import ingest
+
+        return ingest(self.store, self.brain, profile, str(path), read_text_file(path))
+
     def warmup(self) -> None:
         """Modelleri RAM'e önceden yükle; ilk mesaj soğuk beklememesi için."""
         try:

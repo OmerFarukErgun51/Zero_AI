@@ -53,6 +53,16 @@ def test_context_bounded(tmp_path):
     assert ctx[-1] == {"role": "user", "content": "soru"}
 
 
+def test_build_context_includes_knowledge(tmp_path):
+    from zero.rag import ingest
+
+    s = _store(tmp_path)
+    brain = FakeBrain([1.0, 0.0])
+    ingest(s, brain, "omer", "notlar.txt", "ZeRo tamamen offline çalışır")
+    ctx = build_context(s, brain, "omer", "ZeRo nasıl çalışır?")
+    assert "offline" in ctx[0]["content"]
+
+
 def test_cosine_basic():
     assert cosine([1.0, 0.0], [1.0, 0.0]) == 1.0
     assert cosine([1.0, 0.0], [0.0, 1.0]) == 0.0

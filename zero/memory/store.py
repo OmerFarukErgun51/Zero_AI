@@ -71,6 +71,13 @@ class MemoryStore:
                 title TEXT NOT NULL,
                 ts TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS knowledge (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile TEXT NOT NULL,
+                source TEXT NOT NULL,
+                chunk TEXT NOT NULL,
+                vector TEXT NOT NULL
+            );
             """
         )
         c.commit()
@@ -161,6 +168,22 @@ class MemoryStore:
         for r in rows:
             out.append((self._row_to_message(r), json.loads(r["vector"])))
         return out
+
+    # --- bilgi (RAG): kullanıcının öğrettiği belge parçaları ---
+    def add_knowledge(self, profile: str, source: str, chunk: str, vector: list[float]) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO knowledge (profile, source, chunk, vector) VALUES (?, ?, ?, ?)",
+                (profile, source, chunk, json.dumps(vector)),
+            )
+            self._conn.commit()
+
+    def knowledge_chunks(self, profile: str) -> list[tuple[str, list[float]]]:
+        rows = self._conn.execute(
+            "SELECT chunk, vector FROM knowledge WHERE profile = ? ORDER BY id ASC",
+            (profile,),
+        ).fetchall()
+        return [(r["chunk"], json.loads(r["vector"])) for r in rows]
 
     # --- etkinlik örnekleri (gün boyu takip) ---
     def add_activity_sample(self, profile: str, app: str, title: str, ts: datetime) -> None:

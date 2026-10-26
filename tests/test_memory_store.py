@@ -51,6 +51,22 @@ def test_usable_from_another_thread(tmp_path):
     assert s.recent_messages("omer")[-1].text == "threadten"
 
 
+def test_knowledge_roundtrip(tmp_path):
+    s = _store(tmp_path)
+    s.add_knowledge("omer", "notlar.txt", "ZeRo offline çalışır", [0.1, 0.2])
+    s.add_knowledge("omer", "notlar.txt", "ikinci parça", [0.3, 0.4])
+    chunks = s.knowledge_chunks("omer")
+    assert len(chunks) == 2
+    assert chunks[0][0] == "ZeRo offline çalışır"
+    assert chunks[0][1] == [0.1, 0.2]
+
+
+def test_knowledge_profile_isolated(tmp_path):
+    s = _store(tmp_path)
+    s.add_knowledge("omer", "x", "gizli", [0.1])
+    assert s.knowledge_chunks("ayse") == []
+
+
 def test_embedding_roundtrip(tmp_path):
     s = _store(tmp_path)
     mid = s.add_message("omer", "user", "vektor")

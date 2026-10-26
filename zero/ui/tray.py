@@ -8,6 +8,7 @@ DEFAULT_PROFILE = "omer"
 def run_ui(app, profile: str = DEFAULT_PROFILE):  # pragma: no cover - GUI
     """ZeRo'yu sistem tepsisinde başlatır; sohbet penceresi ve menü kurar."""
     import sys
+    import threading
 
     from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
     from PySide6.QtGui import QIcon, QPixmap, QColor, QAction
@@ -101,6 +102,26 @@ def run_ui(app, profile: str = DEFAULT_PROFILE):  # pragma: no cover - GUI
     act_ppt.triggered.connect(presentation_action)
     menu.addAction(act_ppt)
 
+    def learn_doc_action():
+        from PySide6.QtWidgets import QFileDialog
+
+        path, _ = QFileDialog.getOpenFileName(window, "ZeRo'ya öğretilecek belge", "", "Metin (*.txt)")
+        if path:
+            tray.showMessage("ZeRo", "Belgeyi öğreniyorum…")
+
+            def work():
+                try:
+                    n = app.learn_document(profile, path)
+                    app.notifier.send("ZeRo", f"Öğrendim: {n} parça belleğime eklendi.")
+                except Exception:
+                    app.notifier.send("ZeRo", "Belgeyi öğrenirken bir sorun oldu.")
+
+            threading.Thread(target=work, daemon=True).start()
+
+    act_learn = QAction("Belge öğret")
+    act_learn.triggered.connect(learn_doc_action)
+    menu.addAction(act_learn)
+
     def remember_action():
         from PySide6.QtWidgets import QInputDialog
 
@@ -124,8 +145,6 @@ def run_ui(app, profile: str = DEFAULT_PROFILE):  # pragma: no cover - GUI
     tray.show()
 
     # Modelleri arka planda önceden ısıt (ilk mesaj soğuk beklememesi için)
-    import threading
-
     threading.Thread(target=app.warmup, daemon=True).start()
 
     # Açılış brifingini bir bildirimle sun

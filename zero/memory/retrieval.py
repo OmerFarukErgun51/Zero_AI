@@ -44,6 +44,13 @@ def build_context(
 ) -> list[dict]:
     system_content = _system_content(store, profile)
 
+    # RAG: kullanıcının öğrettiği belgelerden soruyla ilgili parçaları ekle
+    from zero.rag import retrieve as _retrieve_knowledge
+
+    knowledge = _retrieve_knowledge(store, brain, profile, user_message)
+    if knowledge:
+        system_content += "\n\nİlgili bilgi (Ömer'in belgelerinden):\n" + "\n---\n".join(knowledge)
+
     recent = store.recent_messages(profile, limit=recent_n) if recent_n > 0 else []
     recent_ids = {m.id for m in recent}
 

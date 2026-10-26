@@ -187,6 +187,15 @@ def test_set_plan_from_text_schedules(tmp_path):
     assert len(backend.jobs) == 1
 
 
+def test_learn_document_ingests(tmp_path):
+    p = tmp_path / "not.txt"
+    p.write_text("Elma yemek sağlıklıdır ve lezzetlidir.", encoding="utf-8")
+    app = _app(tmp_path)
+    n = app.learn_document("omer", p)
+    assert n >= 1
+    assert len(app.store.knowledge_chunks("omer")) == n
+
+
 def test_warmup_runs_when_available(tmp_path):
     app = _app(tmp_path)
     app.warmup()  # hata vermemeli; modelleri ısıtmak için chat+embed çağırır
