@@ -1,0 +1,48 @@
+/* ZeRo — koyu, ışıltılı sci-fi HUD teması */
+QWidget {
+    background-color: #0b0f1a;
+    color: #cfe8ff;
+    font-family: "Segoe UI", sans-serif;
+    font-size: 13px;
+}
+
+#zeroHeader {
+    color: #4fd1ff;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    padding: 6px 2px;
+    border-bottom: 1px solid #16304a;
+}
+
+#zeroTranscript {
+    background-color: #070b14;
+    border: 1px solid #16304a;
+    border-radius: 8px;
+    padding: 8px;
+}
+
+QLineEdit {
+    background-color: #0f1626;
+    border: 1px solid #1e3a5c;
+    border-radius: 8px;
+    padding: 8px;
+    color: #eaf6ff;
+}
+
+QLineEdit:focus {
+    border: 1px solid #4fd1ff;
+}
+
+QPushButton {
+    background-color: #123a5a;
+    border: 1px solid #2f6f9f;
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: #eaf6ff;
+}
+
+QPushButton:hover {
+    background-color: #1b5280;
+    border: 1px solid #4fd1ff;
+}
