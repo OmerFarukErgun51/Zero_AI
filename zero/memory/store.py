@@ -18,6 +18,14 @@ class Message:
     ts: datetime
 
 
+@dataclass
+class ActivitySample:
+    profile: str
+    app: str
+    title: str
+    ts: datetime
+
+
 class MemoryStore:
     def __init__(self, db_path: Path):
         self.db_path = Path(db_path)
@@ -50,6 +58,13 @@ class MemoryStore:
             CREATE TABLE IF NOT EXISTS embeddings (
                 message_id INTEGER PRIMARY KEY,
                 vector TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS activity (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile TEXT NOT NULL,
+                app TEXT NOT NULL,
+                title TEXT NOT NULL,
+                ts TEXT NOT NULL
             );
             """
         )
@@ -137,3 +152,26 @@ class MemoryStore:
         for r in rows:
             out.append((self._row_to_message(r), json.loads(r["vector"])))
         return out
+
+    # --- etkinlik örnekleri (gün boyu takip) ---
+    def add_activity_sample(self, profile: str, app: str, title: str, ts: datetime) -> None:
+        self._conn.execute(
+            "INSERT INTO activity (profile, app, title, ts) VALUES (?, ?, ?, ?)",
+            (profile, app, title, ts.isoformat()),
+        )
+        self._conn.commit()
+
+    def activity_for_day(self, profile: str, day) -> list[ActivitySample]:
+        rows = self._conn.execute(
+            "SELECT * FROM activity WHERE profile = ? AND substr(ts, 1, 10) = ? ORDER BY id ASC",
+            (profile, day.isoformat()),
+        ).fetchall()
+        return [
+            ActivitySample(
+                profile=r["profile"],
+                app=r["app"],
+                title=r["title"],
+                ts=datetime.fromisoformat(r["ts"]),
+            )
+            for r in rows
+        ]
