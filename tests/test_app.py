@@ -56,6 +56,36 @@ def test_chat_turn_persists_and_replies(tmp_path):
     assert roles == ["user", "assistant"]
 
 
+class ToolBrain:
+    """İlk çağrıda system_info aracını ister, sonra sonucu kullanıp cevap akıtır."""
+
+    def is_available(self):
+        return BrainStatus(True, "ok")
+
+    def embed(self, text):
+        return [0.0]
+
+    def chat_tools(self, messages, tools):
+        return {
+            "content": "",
+            "tool_calls": [{"function": {"name": "system_info", "arguments": {}}}],
+        }
+
+    def chat_stream(self, messages):
+        self.last_ctx = messages
+        yield "İşte bilgisayarın hakkında bilgi."
+
+
+def test_chat_turn_stream_uses_tools(tmp_path):
+    brain = ToolBrain()
+    app = _app(tmp_path, brain=brain)
+    chunks = []
+    full = app.chat_turn_stream("omer", "bilgisayarım nasıl?", chunks.append)
+    assert full == "İşte bilgisayarın hakkında bilgi."
+    joined = " ".join(m.get("content", "") for m in brain.last_ctx if isinstance(m, dict))
+    assert "RAM" in joined  # system_info aracı gerçekten çalışıp bağlama girmiş
+
+
 def test_chat_turn_stream(tmp_path):
     app = _app(tmp_path)
     chunks = []

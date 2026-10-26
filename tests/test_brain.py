@@ -12,6 +12,13 @@ class FakeClient:
 
     def chat(self, **kwargs):
         self.chat_kwargs = kwargs
+        if kwargs.get("tools"):
+            return {
+                "message": {
+                    "content": "",
+                    "tool_calls": [{"function": {"name": "system_info", "arguments": {}}}],
+                }
+            }
         if kwargs.get("stream"):
             return iter(
                 [
@@ -86,6 +93,13 @@ def test_chat_stream_yields_deltas():
     chunks = list(_brain(fake).chat_stream([{"role": "user", "content": "selam"}]))
     assert "".join(chunks) == "merhaba"
     assert fake.chat_kwargs["stream"] is True
+
+
+def test_chat_tools_returns_message_with_tool_calls():
+    fake = FakeClient()
+    msg = _brain(fake).chat_tools([{"role": "user", "content": "bilgisayarım?"}], tools=[{"x": 1}])
+    assert fake.chat_kwargs["tools"] == [{"x": 1}]
+    assert msg["tool_calls"][0]["function"]["name"] == "system_info"
 
 
 def test_embed_returns_vector():

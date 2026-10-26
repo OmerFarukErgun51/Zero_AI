@@ -12,6 +12,44 @@ from zero.planner.model import DayPlan
 from zero.planner.parser import merge_meetings, parse_free_text
 
 
+_TOOL_HINTS = (
+    "dosya", "nerede", "bul ", "klasör", "klasor", "bilgisayar", "laptop", "ram",
+    "işlemci", "islemci", "disk", "özellik", "ozellik", "sistem", "masaüstü", "masaustu",
+    "belge", "indir",
+)
+
+
+def _needs_tools(text: str) -> bool:
+    t = text.casefold()
+    return any(h in t for h in _TOOL_HINTS)
+
+
+def _extract_tool_calls(message):
+    tc = message.get("tool_calls") if isinstance(message, dict) else getattr(message, "tool_calls", None)
+    out = []
+    for c in tc or []:
+        fn = c["function"] if isinstance(c, dict) else c.function
+        name = fn["name"] if isinstance(fn, dict) else fn.name
+        args = fn["arguments"] if isinstance(fn, dict) else fn.arguments
+        if isinstance(args, str):
+            import json
+
+            try:
+                args = json.loads(args)
+            except Exception:
+                args = {}
+        out.append((name, args or {}))
+    return out
+
+
+def _msg_content(message) -> str:
+    if message is None:
+        return ""
+    if isinstance(message, dict):
+        return message.get("content", "") or ""
+    return getattr(message, "content", "") or ""
+
+
 class ZeroApp:
     def __init__(
         self, config, store, brain, outlook, notifier, scheduler, break_tracker,
@@ -50,14 +88,53 @@ class ZeroApp:
             return status.message
 
         ctx = build_context(self.store, self.brain, profile, user_text)
-        full = ""
-        for delta in self.brain.chat_stream(ctx):
-            full += delta
-            on_chunk(delta)
+        if _needs_tools(user_text):
+            full = self._agentic_answer(ctx, on_chunk)
+        else:
+            full = ""
+            for delta in self.brain.chat_stream(ctx):
+                full += delta
+                on_chunk(delta)
         uid = self.store.add_message(profile, "user", user_text)
         aid = self.store.add_message(profile, "assistant", full)
         self._embed_quietly(uid, user_text)
         self._embed_quietly(aid, full)
+        return full
+
+    def _agentic_answer(self, ctx: list, on_chunk) -> str:
+        """Gerekirse bilgisayar araçlarını çağırır, sonucu kullanıp cevabı akıtır."""
+        from zero.tools import TOOLS, dispatch
+
+        try:
+            msg = self.brain.chat_tools(ctx, TOOLS)
+            calls = _extract_tool_calls(msg)
+        except Exception:
+            msg, calls = None, []
+
+        if calls:
+            results = [f"[{name}] sonucu:\n{dispatch(name, args)}" for name, args in calls]
+            ctx.append(
+                {
+                    "role": "user",
+                    "content": "(Sistem notu: aşağıda bilgisayardan alınan araç sonuçları "
+                    "var. Bunları kullanarak son soruyu Türkçe ve net yanıtla.)\n\n"
+                    + "\n\n".join(results),
+                }
+            )
+            full = ""
+            for delta in self.brain.chat_stream(ctx):
+                full += delta
+                on_chunk(delta)
+            return full
+
+        content = _msg_content(msg)
+        if content:
+            on_chunk(content)
+            return content
+        full = ""
+        for delta in self.brain.chat_stream(ctx):
+            full += delta
+            on_chunk(delta)
         return full
 
     def _embed_quietly(self, message_id: int, text: str) -> None:

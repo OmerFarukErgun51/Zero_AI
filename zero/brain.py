@@ -127,6 +127,23 @@ class Brain:
             if delta:
                 yield delta
 
+    def chat_tools(self, messages: list[dict], tools: list):
+        """Modeli araçlarla çağırır; dönen mesajı (içerik + olası tool_calls) döndürür."""
+        messages = self._no_think(messages)
+        kwargs = dict(
+            model=self.config.model,
+            messages=messages,
+            keep_alive=self.config.keep_alive,
+            tools=tools,
+            think=False,
+        )
+        try:
+            resp = self._client.chat(**kwargs)
+        except TypeError:
+            kwargs.pop("think")
+            resp = self._client.chat(**kwargs)
+        return resp["message"] if isinstance(resp, dict) else resp.message
+
     def embed(self, text: str) -> list[float]:
         resp = self._client.embeddings(
             model=self.config.embed_model,
