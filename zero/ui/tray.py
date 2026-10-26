@@ -123,6 +123,11 @@ def run_ui(app, profile: str = DEFAULT_PROFILE):  # pragma: no cover - GUI
     tray.setContextMenu(menu)
     tray.show()
 
+    # Modelleri arka planda önceden ısıt (ilk mesaj soğuk beklememesi için)
+    import threading
+
+    threading.Thread(target=app.warmup, daemon=True).start()
+
     # Açılış brifingini bir bildirimle sun
     try:
         tray.showMessage("ZeRo", app.startup_briefing(profile))

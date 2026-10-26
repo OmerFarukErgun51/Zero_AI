@@ -31,7 +31,7 @@ def test_chat_sends_model_and_keep_alive():
     fake = FakeClient()
     out = _brain(fake).chat([{"role": "user", "content": "selam"}])
     assert fake.chat_kwargs["model"] == "qwen2.5:3b"
-    assert fake.chat_kwargs["keep_alive"] == "5m"
+    assert fake.chat_kwargs["keep_alive"] == "30m"
     assert out == "merhaba Ömer"
 
 

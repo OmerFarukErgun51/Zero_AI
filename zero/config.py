@@ -16,7 +16,7 @@ class Config:
     memory_root: Path = field(default_factory=_default_memory_root)
     model: str = "qwen2.5:3b"
     embed_model: str = "nomic-embed-text"
-    keep_alive: str = "5m"
+    keep_alive: str = "30m"  # model RAM'de kalsın; her mesajda baştan yüklenmesin
     break_interval_min: int = 60
     water_interval_min: int = 90
     sample_interval_s: int = 60

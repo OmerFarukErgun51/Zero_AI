@@ -7,7 +7,7 @@ from zero.config import Config
 def test_defaults_when_no_file(tmp_path):
     cfg = Config.load(tmp_path / "missing.json")
     assert cfg.model == "qwen2.5:3b"
-    assert cfg.keep_alive == "5m"
+    assert cfg.keep_alive == "30m"
 
 
 def test_reads_overrides(tmp_path):

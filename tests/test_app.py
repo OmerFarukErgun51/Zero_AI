@@ -166,6 +166,16 @@ def test_set_plan_from_text_schedules(tmp_path):
     assert len(backend.jobs) == 1
 
 
+def test_warmup_runs_when_available(tmp_path):
+    app = _app(tmp_path)
+    app.warmup()  # hata vermemeli; modelleri ısıtmak için chat+embed çağırır
+
+
+def test_warmup_safe_when_unavailable(tmp_path):
+    app = _app(tmp_path, brain=FakeBrain(available=False))
+    app.warmup()  # model yokken sessizce geçmeli, patlamamalı
+
+
 def test_make_presentation_creates_file(tmp_path):
     brain = FakeBrain(reply='[{"title":"Giriş","bullets":["a","b"]}]')
     store = MemoryStore(tmp_path / "zero.sqlite3")

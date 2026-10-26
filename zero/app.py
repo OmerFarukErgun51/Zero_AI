@@ -85,6 +85,15 @@ class ZeroApp:
     def remember(self, profile: str, key: str, value: str) -> None:
         self.store.set_fact(profile, key, value)
 
+    def warmup(self) -> None:
+        """Modelleri RAM'e önceden yükle; ilk mesaj soğuk beklememesi için."""
+        try:
+            if self.brain.is_available().ok:
+                self.brain.chat([{"role": "user", "content": "merhaba"}])
+                self.brain.embed("merhaba")
+        except Exception:
+            pass
+
     def read_screen(self, ocr=None, grab=None) -> str:
         from zero.screen import read_screen
 
