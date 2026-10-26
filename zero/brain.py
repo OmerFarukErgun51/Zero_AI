@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from zero.config import Config
+
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
 @dataclass
@@ -34,8 +37,13 @@ def _model_names(listing) -> list[str]:
 
 def _content(resp) -> str:
     if isinstance(resp, dict):
-        return resp["message"]["content"]
-    return resp.message.content
+        text = resp["message"]["content"]
+    else:
+        text = resp.message.content
+    # Açılış etiketi şablon tarafından yenmiş olabilir; </think> sonrasını al.
+    if "</think>" in text:
+        text = text.rsplit("</think>", 1)[-1]
+    return _THINK_RE.sub("", text).strip()
 
 
 def _embedding(resp) -> list[float]:
@@ -68,13 +76,33 @@ class Brain:
         return BrainStatus(True, "ZeRo hazır.")
 
     def chat(self, messages: list[dict], stream: bool = False) -> str:
-        resp = self._client.chat(
+        messages = self._no_think(messages)
+        kwargs = dict(
             model=self.config.model,
             messages=messages,
             keep_alive=self.config.keep_alive,
             stream=stream,
+            think=False,  # qwen3 gibi düşünen modellerde hızı için düşünmeyi kapat
         )
+        try:
+            resp = self._client.chat(**kwargs)
+        except TypeError:
+            # Eski ollama istemcisi 'think' parametresini tanımıyorsa onsuz dene
+            kwargs.pop("think")
+            resp = self._client.chat(**kwargs)
         return _content(resp)
+
+    def _no_think(self, messages: list[dict]) -> list[dict]:
+        """qwen3 için son kullanıcı mesajına '/no_think' ekler (düşünmeyi kapatır)."""
+        if "qwen3" not in self.config.model:
+            return messages
+        out = [dict(m) for m in messages]
+        for m in reversed(out):
+            if m.get("role") == "user":
+                if "/no_think" not in m["content"]:
+                    m["content"] = m["content"] + " /no_think"
+                break
+        return out
 
     def embed(self, text: str) -> list[float]:
         resp = self._client.embeddings(

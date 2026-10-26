@@ -14,7 +14,7 @@ def _default_memory_root() -> Path:
 @dataclass
 class Config:
     memory_root: Path = field(default_factory=_default_memory_root)
-    model: str = "qwen3:4b"
+    model: str = "qwen2.5:3b"
     embed_model: str = "nomic-embed-text"
     keep_alive: str = "5m"
     break_interval_min: int = 60

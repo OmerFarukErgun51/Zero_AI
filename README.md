@@ -37,10 +37,11 @@ one-time model download needs the internet.
 
 1. Install Ollama, then pull the models (one-time, needs internet):
    ```
-   ollama pull qwen3:4b
+   ollama pull qwen2.5:3b
    ollama pull nomic-embed-text
    ```
-   (You can switch `qwen3:4b` to `gemma3:4b` in `config.json`.)
+   (`qwen2.5:3b` is a good fast default for a CPU-only machine. You can switch it
+   to `gemma3:4b` or `qwen3:4b` in `config.json` if you have more power.)
 2. Install Python dependencies:
    ```
    python -m venv .venv

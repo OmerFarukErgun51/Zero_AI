@@ -30,9 +30,36 @@ def _brain(client):
 def test_chat_sends_model_and_keep_alive():
     fake = FakeClient()
     out = _brain(fake).chat([{"role": "user", "content": "selam"}])
-    assert fake.chat_kwargs["model"] == "qwen3:4b"
+    assert fake.chat_kwargs["model"] == "qwen2.5:3b"
     assert fake.chat_kwargs["keep_alive"] == "5m"
     assert out == "merhaba Ömer"
+
+
+def test_chat_disables_thinking():
+    # qwen3 gibi "düşünen" modeller CPU'da yavaş; sohbet için düşünme kapalı olmalı
+    fake = FakeClient()
+    _brain(fake).chat([{"role": "user", "content": "selam"}])
+    assert fake.chat_kwargs["think"] is False
+
+
+def test_chat_appends_no_think_for_qwen():
+    fake = FakeClient()
+    Brain(Config(model="qwen3:4b"), client=fake).chat([{"role": "user", "content": "selam"}])
+    assert "/no_think" in fake.chat_kwargs["messages"][-1]["content"]
+
+
+def test_content_strips_think_block():
+    from zero.brain import _content
+
+    resp = {"message": {"content": "<think>uzun uzun düşünce</think>\nMerhaba Ömer."}}
+    assert _content(resp) == "Merhaba Ömer."
+
+
+def test_content_strips_orphan_think_close():
+    from zero.brain import _content
+
+    resp = {"message": {"content": "düşünce metni burada\n</think>\nGerçek cevap."}}
+    assert _content(resp) == "Gerçek cevap."
 
 
 def test_is_available_false_when_connection_error():
